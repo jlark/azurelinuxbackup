@@ -1,0 +1,56 @@
+#!/bin/bash
+# full system backup
+
+# Backup destination
+backdest=/opt/backup
+
+# Labels for backup name
+pc=${HOSTNAME}
+distro=`uname -a | awk '{print $4}'` 
+type=full
+date=$(date "+%F")
+backupfile="$backdest/$distro-$type-$date.tar.gz"
+username=`whoami`
+
+#blob storage variables
+storageAccountName=<YOUR AZURE STORAGE ACCOUNT NAME>
+storageAccountKey=<YOUR AZURE STORAGE KEY>
+storageContainer=<YOUR AZURE CONTAINER NAME>
+
+
+# Exclude file location
+prog=${0##*/} # Program name from filename
+excdir=`pwd`
+exclude_file="$excdir/$prog-exc.txt"
+azure_account_file=="/home/$username/azure_account.xml"
+
+
+#check backup destination is there
+if [ ! -d "$backdest" ]; then
+        mkdir -p $backdest
+fi
+
+# Check if exclude file exists
+if [ ! -f $exclude_file ]; then
+  echo "checking exclude $exclude_file"
+  echo -n "No exclude file exists, continue? (y/n): "
+  read continue
+  if [ $continue == "n" ]; then exit; fi
+fi
+
+
+#if [ ! -f $azure_account_file ]; then
+#	echo "azure user accout doesn't exist cannot connect to blob storage without it $azure_account_file"
+#	echo "run > azure accout download"
+#	echo  -n "do you wish to continue? this will only create a local backup (y/n)"
+# 	read continue
+#	if [ $continue == "n" ]; then exit; fi
+#fi
+
+#don't use nohup we want to make this blocking
+tar --exclude-from=$exclude_file -czpvf $backupfile /
+
+#after tar is finished move to blob storage
+azure storage blob upload -a $storageAccountName --container $storageContainer -k $storageAccountKey $backupfile
+
+echo "all done!"
